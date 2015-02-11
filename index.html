@@ -1,0 +1,1043 @@
+
+
+
+
+<html>
+<head><title>DEA Registration Form 224: General Information, Page 1</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <script language="JavaScript1.2" src="js/utils.js"></script>
+    <script language="JavaScript1.2" src="js/persInfoMsg.js"></script>
+
+    <script src="http://js.arcgis.com/3.11/"></script>
+    <link rel="stylesheet" href="http://js.arcgis.com/3.11/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" href="http://js.arcgis.com/3.11/esri/css/esri.css">
+
+    <SCRIPT LANGUAGE = JAVASCRIPT TYPE  = "TEXT/JAVASCRIPT">
+//        <!-- hide
+//        function newWin(){
+//            schedWin = window.open('states.htm','st','width=350,height=460,scrollbars=yes')
+//        }
+//        // end hiding -->
+
+
+        function handleAddressVerification(form) {
+            console.log(form);
+            console.log("address1: " + form.businessAddress1.value);
+            console.log("address2: " + form.businessAddress2.value);
+            console.log("city: " + form.city.value);
+            console.log("state: " + form.state.value);
+            console.log("zip: " + form.zip.value);
+
+            var address1 = form.businessAddress1.value;
+            var address2 = form.businessAddress2.value;
+            var city =  form.city.value;
+            var state = form.state.value;
+            var zip = form.zip.value;
+
+            if (address1 && city && state && zip) {
+                console.log("ready to call geocoding service!");
+            } else {
+                var missingField = "";
+                if (!address1) missingField = "Business Address Line 1";
+                if (missingField ==="" && !city) missingField = "City";
+                if (missingField ==="" && !state) missingField = "State";
+                if (missingField ==="" && !zip) missingField = "Zip";
+
+                var message =  "At least, One of the required fields for address verification such as '" + missingField + "' is not filled out yet!"
+                console.log(message);
+
+
+            }
+        }
+
+    </SCRIPT>
+
+    <script>
+        var locator;
+        var domUtil;
+        var map;
+        var symbol;
+        var addressCandidates;
+        var webMercatorUtil;
+        var GraphicClass;
+
+        require([
+            "esri/map", "esri/tasks/locator", "esri/graphic",
+            "esri/InfoTemplate", "esri/symbols/SimpleMarkerSymbol",  "esri/symbols/SimpleLineSymbol",
+            "esri/symbols/Font", "esri/symbols/TextSymbol",  "esri/geometry/webMercatorUtils",
+            "dojo/_base/array", "esri/Color",
+            "esri/SpatialReference",
+            "dojo/_base/connect",
+            "dojo/number", "dojo/parser", "dojo/dom", "dijit/registry",
+
+            "dijit/form/Button", "dijit/form/Textarea",
+            "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dojo/domReady!"
+        ], function(
+                Map, Locator, Graphic,
+                InfoTemplate, SimpleMarkerSymbol, SimpleLineSymbol,
+                Font, TextSymbol, webMercatorUtils,
+                arrayUtils, Color,
+                SpatialReference,
+                connect,
+
+                number, parser, dom, registry
+        ) {
+            parser.parse();
+
+            domUtil = dom;
+            webMercatorUtil = webMercatorUtils;
+            GraphicClass = Graphic;
+
+            //create a random color for the text and marker symbol
+            symbol = new SimpleMarkerSymbol(
+                    SimpleMarkerSymbol.STYLE_CIRCLE,
+                    15,
+                    new SimpleLineSymbol(
+                            SimpleLineSymbol.STYLE_SOLID,
+                            new Color([200, 80, 80, 0.45]),
+                            8
+                    ), new Color([200, 80, 80, 0.75]));
+
+            map = new Map("map",{
+                basemap: "topo",
+                center: [-66.311, 43.676],
+                zoom: 3
+            });
+
+            locator = new Locator("http://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer");
+            locator.on("address-to-locations-complete", showResults);
+
+            // listen for button click then geocode
+            registry.byId("locate").on("click", locate);
+            registry.byId("next").on("click", function(evt){
+                if (dom.byId("map").style.display === "block") {
+                    dom.byId("map").style.display = "none";
+                }else {
+                    dom.byId("map").style.display = "block";
+                }
+            });
+
+            function locate() {
+                var form = document.persInfoForm;
+                console.log(form);
+                console.log("address1: " + form.businessAddress1.value);
+                console.log("address2: " + form.businessAddress2.value);
+                console.log("city: " + form.city.value);
+                console.log("state: " + form.state.value);
+                console.log("zip: " + form.zip.value);
+
+                var address1 = form.businessAddress1.value;
+                var address2 = form.businessAddress2.value;
+                var city =  form.city.value;
+                var state = form.state.value;
+                var zip = form.zip.value;
+
+                if (address1 && city && state && zip) {
+                    console.log("ready to call geocoding service!");
+                    var singleLineAddress = address1 + ",";
+                    if (address2 && address2 != "")singleLineAddress += address2 + ",";
+                    singleLineAddress += city + ",";
+                    singleLineAddress += state + " ";
+                    singleLineAddress += zip;
+
+                    var address = {
+                        "SingleLine": singleLineAddress
+                    };
+                    locator.outSpatialReference = new SpatialReference(4326);
+                    var options = {
+                        address: address,
+                        outFields: ["Loc_name"]
+                    };
+                    locator.addressToLocations(options);
+
+                } else {
+                    var missingField = "";
+                    if (!address1) missingField = "Business Address Line 1";
+                    if (missingField ==="" && !city) missingField = "City";
+                    if (missingField ==="" && !state) missingField = "State";
+                    if (missingField ==="" && !zip) missingField = "Zip";
+
+                    var message =  "At least, One of the required fields for business address such as '" + missingField + "' has not been filled out yet!";
+                    console.log(message);
+                    dom.byId("addressListIDiv").innerHTML = "<p>" + message + "</p>";
+                }
+
+            }
+
+            function showResults(evt) {
+                addressCandidates = [];
+                var validCount = 0;
+                var optionsHtml = "";
+                arrayUtils.forEach(evt.addresses, function(candidate, index) {
+                    console.log(index + " score: " + candidate.score + " " + candidate.address);
+                    var candidateParts = candidate.address.split(",");
+                    if (candidate.score > 80 && candidateParts.length >= 4) {
+                        //console.log(candidate.location);
+                        addressCandidates.push(candidate);
+                        validCount++;
+                        optionsHtml += '<option value="address_' + validCount + '"> ' + candidate.address + '</option>';
+
+                        // display the first one
+                        if (validCount == 1) {
+//                            var pointMeters = webMercatorUtils.geographicToWebMercator(candidate.location);
+//                            var locationGraphic = new Graphic(pointMeters, symbol);
+//                            map.graphics.add(locationGraphic);
+//                            map.centerAndZoom(candidate.location, 15);
+                            showCandidate(candidate);
+                        }
+                    }
+                });
+
+                var htmlContent = "<p>Returned Addresses: </br>(please select one from the dropdown list) </p>";
+                if (validCount==0) {
+                    htmlContent = "<p>Warning: there is no valid return, please check the address you enter. </p>";
+                }
+                htmlContent += '<select id="addressSelect" onchange="handleAddressChange(this)">';
+                htmlContent += optionsHtml;
+                htmlContent += '</select>';
+                htmlContent += '<div id="errorMsg"></div>';
+                dom.byId("addressListIDiv").innerHTML = htmlContent;
+
+            }
+
+        });
+
+        function showCandidate(candidate) {
+            map.graphics.clear();
+            var pointMeters = webMercatorUtil.geographicToWebMercator(candidate.location);
+            var locationGraphic = new GraphicClass(pointMeters, symbol);
+            map.graphics.add(locationGraphic);
+            map.centerAndZoom(candidate.location, 15);
+        }
+
+        function handleAddressChange(event) {
+            console.log(event);
+            console.log(event.selectedIndex);
+            console.log(event.options[event.selectedIndex].value);
+
+            var address = event.options[event.selectedIndex].text;
+            console.log(address);
+
+            var addressParts = address.split(",");
+            if(addressParts.length >= 4) {
+                domUtil.byId("errorMsg").innerHTML = "";
+
+                var form = document.persInfoForm;
+                var index=0;
+                form.businessAddress1.value = addressParts[index++];
+                if (addressParts.length >= 5) {
+                    form.businessAddress2.value = addressParts[index++];
+                }
+                form.city.value = addressParts[index++];
+                //form.state.value = addressParts[index++];
+                index++;
+                form.zip.value = addressParts[index];
+
+
+                var candidate = addressCandidates[event.selectedIndex];
+                showCandidate(candidate);
+            }
+            else {
+                var message = "<p>Warning: The address candidate you have selected, '" + address + "' doesn't meet the minimum requirement of a valid address</p>";
+                domUtil.byId("errorMsg").innerHTML = message;
+            }
+        }
+
+        function handleNextClick() {
+
+        }
+    </script>
+
+    <style type = "text/css">
+        <!--
+        .reg-fieldset-legend {font-variant: small-caps ;font-style: oblique;}
+        .formBig     { background-color: #F9FCD8; color: #000099;  }
+        .formBigCompOff     { background-color: #F9FCD8; color: #000099; autocomplete:off; }
+        .formSmall		{ background-color: #FFFFFF; color: #000000; size: -5; font-size: 10pt; font-family: Arial; font-variant: small-caps;}
+        .selectOn
+        {
+            background-color: #FFFFFF;
+            color: #1D2C4D;
+            border:1px solid black;
+        }
+        .selectOff		{ background-color: #FFFFFF; color: #000000;}
+        .helpTable     { background-color: #E9ECC8; color: #000099; size: -2; font-family: Arial }
+
+        .schedDiv
+        {
+            position:absolute;
+            top:185px;
+            left:200px;
+        }
+        .schedDivHidden
+        {
+            position:absolute;
+            top:185px;
+            left:200px;
+            visibility:hidden;
+        }
+
+        .dltUserMgmtformTableTdRightBorderButton
+        {
+            vertical-align:middle;
+        }
+        .inlineForm
+        {
+            display:inline;
+        }
+
+        .hideme
+        {
+            display: none;
+        }
+
+        .showme
+        {
+            display: inline;
+        }
+
+        .hiddenDiv
+        {
+            position: absolute ;
+            left: -4000px ;
+        }
+
+        .autocompoff
+        {
+            autocomplete:off;
+        }
+
+        .hidden
+        {
+            display:none;
+        }
+        .visible
+        {
+            display:block;
+        }
+
+        font.required
+        {
+            color:#000099;
+            font-family:Arial;
+            font-size:12px;
+            font-weight:bold;
+            font-style:italic;
+        }
+
+        .pageHeader {text-align:center; color: #3983CC;  font-family: Arial; font-style: bolder; font-size: 20px}
+
+        .label
+        {
+            font-family:Arial;
+            font-size:12px;
+            font-weight:bolder;
+
+        }
+        .helpText
+        {
+            font-family:Arial;
+            font-size:12px;
+        }
+        .regularText
+        {
+            font-family:Arial;
+            font-size:12px;
+        }
+        .regularTextItalic
+        {
+            font-family:Arial;
+            font-size:12px;
+            font-style:italic;
+        }
+        .regularTextBold
+        {
+            font-family:Arial;
+            font-size:12px;
+            font-weight:bold;
+        }
+        .largeTextBold
+        {
+            font-family:Arial;
+            font-size:16px;
+            font-weight:bold;
+        }
+        .smallText
+        {
+            font-family:Arial;
+            font-size:11px;
+        }
+        .smallerText
+        {
+            font-family:Arial;
+            font-size:10px;
+        }
+
+        .smallPrintText
+        {
+            font-family:Arial;
+            font-size:9px;
+        }
+
+        .formSmall
+        {
+            font-family:Arial;
+            font-size:8px;
+        }
+        .formSmallBold
+        {
+            font-family:Arial;
+            font-size:8px;
+            font-weight:bold;
+        }
+
+        .smallTextBold
+        {
+            font-family:Arial;
+            font-size:11px;
+            font-weight:bold;
+        }
+        .printSmall
+        {
+            font-family:Arial;
+            font-size:10px;
+        }
+        .printSmallBold
+        {
+            font-family:Arial;
+            font-size:10px;
+            font-weight:bold;
+        }
+
+
+        td.helpTop {
+            width:162px;
+            vertical-align:top;
+            background-color:#1D2C4D;
+        }
+        td.helpMiddle {
+            width:162px;
+            vertical-align:middle;
+            background-color:#1D2C4D;
+        }
+        td.helpBottom {
+            width:162px;
+            vertical-align:bottom;
+            background-color:#1D2C4D;
+        }
+
+        tr.header1 {  background-color : #DDDDDD; }
+        tr.body1 {  background-color : #BBBBBB; }
+
+        td.header{  width:760px;    vertical-align:top;  background-color : #1D2C4D;}
+        td.header2{  width:760px;    vertical-align:top;  background-color : #1D2C4D;}
+        td.div{ width:162px;   vertical-align:top;   background-color : #1D2C4D;}
+        td.dtlMenu{ width:162px;   vertical-align:top;   background-color : #FFFFFF;}
+        td.formContainerTD{text-align:center;    width:455px;     background-color: #FFFFFF;    vertical-align : top; }
+        td.formContainerTD2{text-align:center;    width:760px;     background-color: #FFFFFF;    vertical-align : top;}
+        td.formContainerTD3{text-align:center;     background-color: #FFFFFF;    vertical-align : top;}
+
+        td.formTableTdHeaderDark{background-color: #E9ECC8;   border-top:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdHeaderLight{background-color: #DDDDDD;   border-top:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdDark{ background-color: #E6E6E6;   border-top:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdLight{ background-color: #F6F6F6;   border-top:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdLightNb{ background-color: #F6F6F6;   border-width:0px;   vertical-align:middle;   padding:5px;}
+        td.formTableTdHeaderDarkNb{background-color: #E9ECC8;  border-width:0px; vertical-align:middle;   padding:5px;}
+
+        td.formTableTdTopMiddle{background-color: #F6F6F6; border-top:1px solid black; vertical-align:middle; padding:5px;}
+        td.formTableTdTopBorder{   border-top:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.colorTopBanner{   background-color: #E9ECC8;}
+        td.formTableTdTopBanner{border-top:1px solid black;  background-color: #EEEEEE; }
+        td.formTableTdBottomButtons{   border-top:1px solid black;   background-color: #EEEEEE;   padding:5px;}
+        td.formTableTd{   border-top:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdPlusRightDotted{   border-top:1px solid black;  border-right:1px dashed black;   vertical-align:middle;   padding:5px;}
+        td.formTableTd2Border{   border-top:1px solid black;   border-bottom:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdRightBorder{   border-right:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdTopAndRightBorder{  border-top:1px solid black; border-right:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdTopBotRightBorder{ border-bottom:1px solid black; border-top:1px solid black; border-right:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdGroove{   border-top:1px groove gray;   vertical-align:middle;   padding:5px;}
+        td.formTableTdNoBorder{   vertical-align:middle;   padding:5px;}
+        td.formTableHeaderTd{    text-align:center;      padding:5px;}
+        td.formTableHeaderTd2{        text-align:center;    padding:5px;}
+        td.formTableTdBottom{   border-top:1px solid black;   border-bottom:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdBottomOnly{   border-bottom:1px solid black;   vertical-align:middle;   padding:5px;}
+        td.formTableTdBottomSolidRightDash{   border-bottom:1px solid grey; border-right:1px groove grey;  vertical-align:middle;  text-align:center; padding:10px 5px;}
+        td.formTableTdBottomSolidRightDashAlignLeft{   border-bottom:1px solid grey; border-right:1px groove grey;  vertical-align:middle;  text-align:left; padding:10px 5px;}
+        td.formTableTdButtons{   border-bottom:1px solid black;   vertical-align:middle;   text-align:center;   text-align:center;   padding:5px;}
+
+
+
+        td.formTableTdTopBorderT{   border-top:1px solid black;   vertical-align:top;   padding:5px;}
+        td.formTableTdT{   border-top:1px solid black;   vertical-align:top;   padding:5px;}
+        td.formTableTd2BorderT{   border-top:1px solid black;   border-bottom:1px solid black;   vertical-align:top;   padding:5px;}
+        td.formTableTdRightBorderT{   border-right:1px solid black;   vertical-align:top;   padding:5px;}
+        td.formTableTdTopAndRightBorderT{  border-top:1px solid black; border-right:1px solid black;   vertical-align:top;   padding:5px;}
+        td.formTableTdTopBotRightBorderT{ border-bottom:1px solid black; border-top:1px solid black; border-right:1px solid black;   vertical-align:top;   padding:5px;}
+        td.formTableTdGrooveT{   border-top:1px groove gray;   vertical-align:top;   padding:5px;}
+        td.formTableTdNoBorderT{   vertical-align:top;   padding:5px;}
+
+
+
+
+        table.outerTable {border-width:0px;  width:760px; background-color:#FFFFFF; font-family: Arial; }
+        table.outerTableDtlDea {border:1px solid black;  width:760px; background-color:#FFFFFF; font-family: Arial; }
+        table.outerTableNoWidth {border-width:0px;  background-color:#FFFFFF; font-family: Arial; }
+        table.colorBorderTable {border-width:0px;  text-align:left;  background-color:#1D2C4D; font-family: Arial;}
+        table.innerTable {border:1px solid black; background-color:#FFFFFF; font-family: Arial; }
+
+        table.formContainerTD {border:1px solid black;   text-align:left;  background-color:#FFFFFF; font-family: Arial; width:100%; height:100% }
+        table.printTable {border:0px solid black;  padding:0px; text-align:left;  background-color:#FFFFFF; font-family: Arial; font-size: 12px }
+        table.drugCodesTable {border:0px solid black;  padding:0px; text-align:left;  background-color:#FFFFFF; font-family: Arial; font-size: 11px }
+        table.borderPrintTable {border:1px solid black;  padding:0px;  text-align:left;  background-color:#FFFFFF; font-family: Arial; font-size: 12px }
+        table.paddedPrintTable {border:0px solid black;  padding:6px; text-align:left;  background-color:#FFFFFF; font-family: Arial; font-size: 12px }
+        table.clearPaddedTable { padding:10px; border-width:0px;  background-color:#FFFFFF; font-family: Arial }
+        table.borderTable {border:1px solid black;   text-align:left;  background-color:#FFFFFF; font-family: Arial}
+
+
+
+        .error1 {color: #3333FF; font-family: Arial; font-weight: bold; font-size: 13px}
+
+        body.oldscroll {scrollbar-3dlight-color:#CEFFFF;
+            scrollbar-arrow-color:#3983CC;
+            scrollbar-base-color:#CEFFFF;
+            scrollbar-darkshadow-color:#3983CC;
+            scrollbar-face-color:#00349C;
+            scrollbar-highlight-color:#3983CC;
+            scrollbar-shadow-color:#CEFFFF}
+
+
+        .break
+        {
+            PAGE-BREAK-AFTER: always;
+        }
+
+
+
+        .dtlMenuPara {
+            font-family: verdana, arial, helvetica, sans-serif;
+            background-color:#DDDDDD;
+            color: #000000;
+        }
+
+        .dtlMenuPara A:link {
+            color: #0000FF;
+            text-decoration: none;
+        }
+
+        .dtlMenuPara A:visited {
+            color: #0000FF;
+            text-decoration: none;
+        }
+
+        .dtlMenuPara A:active {
+            color: #000000;
+            text-decoration: none;
+        }
+
+        .dtlMenuPara A:hover {
+            color: #5555AA;
+            text-decoration: underline overline;
+            background-color:#EEEEEE;
+        }
+
+        @media print {
+            .dontPrint
+            {
+                display:none;
+            }
+
+
+        }
+
+        -->
+    </style>
+
+    <style type='text/css' media='print'>
+
+        .dontPrint
+        {
+            display:none;
+        }
+
+        .locateIcon {
+            background-image:  url("images/VerifyAddress.png"); !important;
+        }
+    </style>
+
+
+
+
+
+</head>
+<body  class="claro" topmargin="0" onload="InitTO();showHelpMessageRegApps(30,10,helpMessages.intro);checkMailAddress(document.persInfoForm);checkLastName(document.persInfoForm.lname, document.persInfoForm.origLastname);">
+<center>
+    <table class="outerTable" cellspacing="0" border="1px">
+        <tr>
+            <td class="header" colspan="3" height="10px">
+
+            </td>
+        </tr>
+        <tr>
+            <td class = "div" >
+
+
+            <td class = "formContainerTD">
+
+
+                <!-- <Form  name = "myForm" action = "ValPInfo" method = "POST">
+                <input type = hidden name ="formName" value = "224"> -->
+                <form name="persInfoForm" method="POST" action="" onsubmit="return clickedButton && validatePersInfoForm(this);" id="persInfoForm">
+                    <table class="formTable"  cellspacing="0">
+                        <tr>
+                            <td  class="formTableHeaderTd" colspan="2">
+                                <P class="pageHeader">
+                                    1. General Information (Page 1)<input type="image" name="submit" src="images/onepix.gif" alt=""> <br>
+                                </P>
+                                <P align="left" class="regularTextBold">
+
+                                </P>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="formTableTd" width="164" height="25">
+                                <P class="label">
+                                    <font class="required">*</font>
+
+                                    Business Name
+                                </P></td>
+                            <td class="formTableTd"   height="25">
+                                <p class="error1"></p>
+
+
+
+
+
+
+
+
+
+                                <input type="text" name="lname" maxlength="50" size="30" value="" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.busname);">
+
+
+
+
+
+                            </td>
+                        </tr>
+
+
+                        <input type="hidden" name="fname" value="">
+
+
+
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label">Additional Company Information</font> </P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <input type="text" name="businessAddress3" maxlength="60" size="30" value="" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className = '';" onfocus=" this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.businessAddress3);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> Business Address Line 1</P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <p class="error1"></p>
+                                <input type="text" name="businessAddress1" maxlength="60" size="30" value="" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className = '';" onfocus=" this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.businessAddress);">
+                            </td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label">Address <font size="1">(Line 2)</font> </P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <input type="text" name="businessAddress2" maxlength="60" size="30" value="" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className = '';" onfocus=" this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.businessAddress2);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> City</P></td>
+                            <td  class="formTableTd"    height="25">
+                                <p class="error1"></p>
+                                <p class="error1"></p>
+
+                                <input type="text" name="city" maxlength="35" size="20" value="" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.city); " id="city">
+                            </td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> State</P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+
+                                <p class="error1"></p>
+                                <select name="state" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className ='selectOff';" onfocus="this.className = 'selectOn'; showHelpMessageRegApps(30,10,helpMessages.state); " id="state"><option value="" selected="selected">-State-</option>
+                                    <option value="AA">AA- ARMED FORCES AMERICAS</option>
+                                    <option value="AE">AE- ARMED FORCES EUROPE</option>
+                                    <option value="AK">AK- ALASKA</option>
+                                    <option value="AL">AL- ALABAMA</option>
+                                    <option value="AP">AP- ARMED FORCES PACIFIC</option>
+                                    <option value="AR">AR- ARKANSAS</option>
+                                    <option value="AS">AS- AMERICAN SAMOA</option>
+                                    <option value="AZ">AZ- ARIZONA</option>
+                                    <option value="CA">CA- CALIFORNIA</option>
+                                    <option value="CO">CO- COLORADO</option>
+                                    <option value="CT">CT- CONNECTICUT</option>
+                                    <option value="DC">DC- DISTRICT OF COLUMBIA</option>
+                                    <option value="DE">DE- DELAWARE</option>
+                                    <option value="FL">FL- FLORIDA</option>
+                                    <option value="FM">FM- FED. STATES OF MICRONESIA</option>
+                                    <option value="GA">GA- GEORGIA</option>
+                                    <option value="GU">GU- GUAM</option>
+                                    <option value="HI">HI- HAWAII</option>
+                                    <option value="IA">IA- IOWA</option>
+                                    <option value="ID">ID- IDAHO</option>
+                                    <option value="IL">IL- ILLINOIS</option>
+                                    <option value="IN">IN- INDIANA</option>
+                                    <option value="KS">KS- KANSAS</option>
+                                    <option value="KY">KY- KENTUCKY</option>
+                                    <option value="LA">LA- LOUISIANA</option>
+                                    <option value="MA">MA- MASSACHUSETTS</option>
+                                    <option value="MD">MD- MARYLAND</option>
+                                    <option value="ME">ME- MAINE</option>
+                                    <option value="MH">MH- MARSHALL ISLANDS</option>
+                                    <option value="MI">MI- MICHIGAN</option>
+                                    <option value="MN">MN- MINNESOTA</option>
+                                    <option value="MO">MO- MISSOURI</option>
+                                    <option value="MP">MP- NORTHERN MARIANA ISLANDS</option>
+                                    <option value="MS">MS- MISSISSIPPI</option>
+                                    <option value="MT">MT- MONTANA</option>
+                                    <option value="NC">NC- NORTH CAROLINA</option>
+                                    <option value="ND">ND- NORTH DAKOTA</option>
+                                    <option value="NE">NE- NEBRASKA</option>
+                                    <option value="NH">NH- NEW HAMPSHIRE</option>
+                                    <option value="NJ">NJ- NEW JERSEY</option>
+                                    <option value="NM">NM- NEW MEXICO</option>
+                                    <option value="NV">NV- NEVADA</option>
+                                    <option value="NY">NY- NEW YORK</option>
+                                    <option value="OH">OH- OHIO</option>
+                                    <option value="OK">OK- OKLAHOMA</option>
+                                    <option value="OR">OR- OREGON</option>
+                                    <option value="PA">PA- PENNSYLVANIA</option>
+                                    <option value="PR">PR- PUERTO RICO</option>
+                                    <option value="PW">PW- PALAU</option>
+                                    <option value="RI">RI- RHODE ISLAND</option>
+                                    <option value="SC">SC- SOUTH CAROLINA</option>
+                                    <option value="SD">SD- SOUTH DAKOTA</option>
+                                    <option value="TN">TN- TENNESSEE</option>
+                                    <option value="TX">TX- TEXAS</option>
+                                    <option value="UT">UT- UTAH</option>
+                                    <option value="VA">VA- VIRGINIA</option>
+                                    <option value="VI">VI- VIRGIN ISLANDS</option>
+                                    <option value="VT">VT- VERMONT</option>
+                                    <option value="WA">WA- WASHINGTON</option>
+                                    <option value="WI">WI- WISCONSIN</option>
+                                    <option value="WV">WV- WEST VIRGINIA</option>
+                                    <option value="WY">WY- WYOMING</option></select>
+                            </td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> Zip</P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <p class="error1"></p>
+                                <input type="text" name="zip" maxlength="5" size="5" value="" onkeydown="TabNext(this,'down',5)" onkeyup="TabNext(this,'up',5,this.form.zip2)" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.zip); ">
+                                -
+                                <input type="text" name="zip2" maxlength="4" size="4" value="" onchange="checkMailAddress(document.persInfoForm);" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.zip);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> Business Phone Number</P>
+                            </td>
+                            <td  class="formTableTd"    height="25" valign="top">
+                                <p class="error1"></p>
+                                <font size="4">(</font>
+                                <input type="text" name="phone" maxlength="3" size="3" value="" onkeydown="TabNext(this,'down',3)" onkeyup="TabNext(this,'up',3,this.form.phone2)" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.phone);" id="phone">
+                                <font size="4">)</font>
+                                <input type="text" name="phone2" maxlength="3" size="3" value="" onkeydown="TabNext(this,'down',3)" onkeyup="TabNext(this,'up',3,this.form.phone3)" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.phone);" id="phone2">
+                                - <input type="text" name="phone3" maxlength="4" size="4" value="" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.phone);" id="phone3">&nbsp; Ex. &nbsp;<input type="text" name="phoneExt" maxlength="7" size="7" value="" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.phone);" id="phoneExt">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="39" valign="top">
+                                <P class="label">Fax Number</P>
+                            </td>
+                            <td  class="formTableTd"    height="39" valign="top">
+                                <p class="error1"></p>
+                                <font size="4">(</font>
+                                <input type="text" name="fax" maxlength="3" size="3" value="" onkeydown="TabNext(this,'down',3)" onkeyup="TabNext(this,'up',3,this.form.fax2)" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.fax);">
+                                <font size="4">)</font>
+                                <input type="text" name="fax2" maxlength="3" size="3" value="" onkeydown="TabNext(this,'down',3)" onkeyup="TabNext(this,'up',3,this.form.fax3)" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.fax); ">
+                                - <input type="text" name="fax3" maxlength="4" size="4" value="" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.fax); ">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="39" valign="top">
+                                <P class="label"><font class="required">*</font> Business Email Address</P>
+                            </td>
+                            <td  class="formTableTd"    height="39" valign="top">
+                                <p class="error1"></p>
+                                <input type="text" name="email" maxlength="60" size="30" value="" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.email);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="39" valign="top">
+                                <P class="label">* Contact Name</P>
+                            </td>
+                            <td  class="formTableTd"    height="39" valign="top">
+                                <p class="error1"></p>
+                                <input type="text" name="pocName" maxlength="100" size="30" value="" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.poc);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd" colspan="2">
+                                <p class="label">Mailing Address <input type="checkbox" name="mailAddressSame" value="on" onclick="checkMailAddress(document.persInfoForm);" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.mailto);"> (Check if same as business address)
+                            </td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label">Additional Company Information</font> </P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <input type="text" name="mailtoAddress3" maxlength="60" size="30" value="" onblur="this.className = '';" onfocus=" this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.mailtoAddress3);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font>Mail to:  Address Line 1</P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <p class="error1"></p>
+                                <input type="text" name="mailtoAddress1" maxlength="60" size="30" value="" onblur="this.className = '';" onfocus=" this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.mailtoAddress1);">
+                            </td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label">Mailing Address <font size="1">(Line 2)</font> </P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <input type="text" name="mailtoAddress2" maxlength="60" size="30" value="" onblur="this.className = '';" onfocus=" this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.mailtoAddress2);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> City</P></td>
+                            <td  class="formTableTd"    height="25">
+                                <p class="error1"></p>
+                                <p class="error1"></p>
+
+                                <input type="text" name="mailtoCity" maxlength="35" size="20" value="" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.mailtoCity); " id="mailtoCity"></td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> State</P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+
+                                <p class="error1"></p>
+                                <select name="mailtoState" onblur="this.className ='selectOff';" onfocus="this.className = 'selectOn'; showHelpMessageRegApps(30,10,helpMessages.mailtoState); "><option value="" selected="selected">-State-</option>
+                                    <option value="AA">AA- ARMED FORCES AMERICAS</option>
+                                    <option value="AE">AE- ARMED FORCES EUROPE</option>
+                                    <option value="AK">AK- ALASKA</option>
+                                    <option value="AL">AL- ALABAMA</option>
+                                    <option value="AP">AP- ARMED FORCES PACIFIC</option>
+                                    <option value="AR">AR- ARKANSAS</option>
+                                    <option value="AS">AS- AMERICAN SAMOA</option>
+                                    <option value="AZ">AZ- ARIZONA</option>
+                                    <option value="CA">CA- CALIFORNIA</option>
+                                    <option value="CO">CO- COLORADO</option>
+                                    <option value="CT">CT- CONNECTICUT</option>
+                                    <option value="DC">DC- DISTRICT OF COLUMBIA</option>
+                                    <option value="DE">DE- DELAWARE</option>
+                                    <option value="FL">FL- FLORIDA</option>
+                                    <option value="FM">FM- FED. STATES OF MICRONESIA</option>
+                                    <option value="GA">GA- GEORGIA</option>
+                                    <option value="GU">GU- GUAM</option>
+                                    <option value="HI">HI- HAWAII</option>
+                                    <option value="IA">IA- IOWA</option>
+                                    <option value="ID">ID- IDAHO</option>
+                                    <option value="IL">IL- ILLINOIS</option>
+                                    <option value="IN">IN- INDIANA</option>
+                                    <option value="KS">KS- KANSAS</option>
+                                    <option value="KY">KY- KENTUCKY</option>
+                                    <option value="LA">LA- LOUISIANA</option>
+                                    <option value="MA">MA- MASSACHUSETTS</option>
+                                    <option value="MD">MD- MARYLAND</option>
+                                    <option value="ME">ME- MAINE</option>
+                                    <option value="MH">MH- MARSHALL ISLANDS</option>
+                                    <option value="MI">MI- MICHIGAN</option>
+                                    <option value="MN">MN- MINNESOTA</option>
+                                    <option value="MO">MO- MISSOURI</option>
+                                    <option value="MP">MP- NORTHERN MARIANA ISLANDS</option>
+                                    <option value="MS">MS- MISSISSIPPI</option>
+                                    <option value="MT">MT- MONTANA</option>
+                                    <option value="NC">NC- NORTH CAROLINA</option>
+                                    <option value="ND">ND- NORTH DAKOTA</option>
+                                    <option value="NE">NE- NEBRASKA</option>
+                                    <option value="NH">NH- NEW HAMPSHIRE</option>
+                                    <option value="NJ">NJ- NEW JERSEY</option>
+                                    <option value="NM">NM- NEW MEXICO</option>
+                                    <option value="NV">NV- NEVADA</option>
+                                    <option value="NY">NY- NEW YORK</option>
+                                    <option value="OH">OH- OHIO</option>
+                                    <option value="OK">OK- OKLAHOMA</option>
+                                    <option value="OR">OR- OREGON</option>
+                                    <option value="PA">PA- PENNSYLVANIA</option>
+                                    <option value="PR">PR- PUERTO RICO</option>
+                                    <option value="PW">PW- PALAU</option>
+                                    <option value="RI">RI- RHODE ISLAND</option>
+                                    <option value="SC">SC- SOUTH CAROLINA</option>
+                                    <option value="SD">SD- SOUTH DAKOTA</option>
+                                    <option value="TN">TN- TENNESSEE</option>
+                                    <option value="TX">TX- TEXAS</option>
+                                    <option value="UT">UT- UTAH</option>
+                                    <option value="VA">VA- VIRGINIA</option>
+                                    <option value="VI">VI- VIRGIN ISLANDS</option>
+                                    <option value="VT">VT- VERMONT</option>
+                                    <option value="WA">WA- WASHINGTON</option>
+                                    <option value="WI">WI- WISCONSIN</option>
+                                    <option value="WV">WV- WEST VIRGINIA</option>
+                                    <option value="WY">WY- WYOMING</option></select>
+                            </td>
+                        </tr>
+                        <tr>
+
+                            <td  class="formTableTd"  width="164" height="25">
+                                <P class="label"><font class="required">*</font> Zip</P>
+                            </td>
+                            <td  class="formTableTd"    height="25">
+                                <p class="error1"></p>
+                                <input type="text" name="mailtoZip" maxlength="5" size="5" value="" onkeydown="TabNext(this,'down',5)" onkeyup="TabNext(this,'up',5,this.form.mailtoZip2)" onblur="this.className = '';" onfocus="this.className = 'formBig';showHelpMessageRegApps(30,10,helpMessages.mailtoZip); ">
+                                -
+                                <input type="text" name="mailtoZip2" maxlength="4" size="4" value="" onblur="this.className = '';" onfocus="this.className = 'formBig'; showHelpMessageRegApps(30,10,helpMessages.mailtoZip);">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="formTableTdButtons" colspan="2">
+
+                                <input type="hidden" name="buttons.modelID" value="7660920508141">
+
+
+
+                                <!--<input type="image" name="org.apache.struts.taglib.html.CANCEL" src="images/Cancel.gif" border="1" value="Cancel" onclick="bCancel=true;clickedButton=true;" alt="Cancel">-->
+                                <!--<input id="locate" type="image" name="org.apache.struts.taglib.html.CANCEL" src="images/VerifyAddress.png" value="Verify" onclick="handleAddressVerification(document.persInfoForm)" alt="Verify Address">-->
+                                <button id="locate" data-dojo-type="dijit.form.Button" data-dojo-props="iconClass:'locateIcon'" type="button">
+                                    <span>Verify Address</span>
+                                </button>
+
+                                &nbsp;
+                                &nbsp;
+
+                                <button id="next" data-dojo-type="dijit.form.Button"  type="button">
+                                    <span>Next -> </span>
+                                </button>
+
+                                <!--<input type="image" name="buttons.next" src="images/Next.gif" border="1" value="Next" onclick="bCancel=false;clickedButton=true;" alt="Next">-->
+                                <!--<input type="image" name="buttons.next" src="images/Next.gif" border="1" value="Next" onclick="" alt="Next">-->
+                                &nbsp;
+
+                                   <!-- Verify Address -->
+
+                            </td>
+                        </tr>
+                    </table>
+                </form>
+            </td>
+
+            <td>
+
+                <div id="addressListIDiv" style="border: 1px">
+                    <!--<p class="label">-->
+                        <!--Please select one address:-->
+                    <!--</p>-->
+                    <!--<select id="addressList">-->
+                        <!--<option value="address1">8515 Westwood Center Drive, Vienna, VA 22182</option>-->
+                        <!--<option value="address1">3554 Armfield Farm Drive, Chantilly , VA 20151</option>-->
+                    <!--</select>-->
+                </div>
+
+                </br>
+                </br>
+
+                <div id="map" style="width:325px; border: 1px">
+                </div>
+
+            </td>
+
+        </tr>
+    </table>
+</center>
+<script type="text/javascript" language="Javascript1.1">
+
+    <!-- Begin
+
+    var bCancel = false;
+
+    function validatePersInfoForm(form) {
+        if (bCancel)
+            return true;
+        else
+            return validateMaxLength(form) && validateRequired(form) && validateMask(form) && validateEmail(form);
+    }
+
+    function maxlength () {
+        this.aa = new Array("fname", "The first name field cannot be greater than 40 characters.", new Function ("varName", "this.maxlength='40';  return this[varName];"));
+        this.ab = new Array("lname", "The last name field cannot be greater than 50 characters.", new Function ("varName", "this.maxlength='50';  return this[varName];"));
+        this.ac = new Array("businessAddress1", "The address field cannot be greater than 60 characters.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+        this.ad = new Array("businessAddress2", "The 2nd address field cannot be greater than 60 characters.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+        this.ae = new Array("businessAddress3", "The 3rd address field cannot be greater than 60 characters.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+        this.af = new Array("city", "The city field cannot be greater than 35 characters.", new Function ("varName", "this.maxlength='35';  return this[varName];"));
+        this.ag = new Array("state", "The state field cannot be greater than 2 characters.", new Function ("varName", "this.maxlength='2';  return this[varName];"));
+        this.ah = new Array("email", "The email field cannot be greater than 60 characters.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+        this.ai = new Array("pocName", "The Contact Name field cannot be greater than 100 characters.", new Function ("varName", "this.maxlength='100';  return this[varName];"));
+    }
+
+    function required () {
+        this.aa = new Array("lname", "Business / Last Name is a required field. Please enter a value.", new Function ("varName", "this.maxlength='50';  return this[varName];"));
+        this.ab = new Array("businessAddress1", "Business Address is a required field. Please enter a value.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+        this.ac = new Array("city", "City is a required field. Please enter a value.", new Function ("varName", "this.maxlength='35';  return this[varName];"));
+        this.ad = new Array("state", "State is a required field. Please enter a value.", new Function ("varName", "this.maxlength='2';  return this[varName];"));
+        this.ae = new Array("zip", "Zipcode is a required field. Please enter a value.", new Function ("varName", "this.mask=/^\\d{5}$/;  return this[varName];"));
+        this.af = new Array("phone", "A complete business phone number is required.", new Function ("varName", "this.mask=/^\\d{3}$/;  return this[varName];"));
+        this.ag = new Array("phone2", "A complete business phone number is required.", new Function ("varName", "this.mask=/^\\d{3}$/;  return this[varName];"));
+        this.ah = new Array("phone3", "A complete business phone number is required.", new Function ("varName", "this.mask=/^\\d{4}$/;  return this[varName];"));
+        this.ai = new Array("email", "The email address is a required field.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+    }
+
+    function mask () {
+        this.aa = new Array("zip", "Zipcode must be digits only, of the form XXXXX or XXXXX-XXXX", new Function ("varName", "this.mask=/^\\d{5}$/;  return this[varName];"));
+        this.ab = new Array("zip2", "Zipcode must be digits only, of the form XXXXX or XXXXX-XXXX", new Function ("varName", "this.mask=/^\\d{4}$/;  return this[varName];"));
+        this.ac = new Array("phone", "Business Phone number must be of the form (XXX) XXX XXXX", new Function ("varName", "this.mask=/^\\d{3}$/;  return this[varName];"));
+        this.ad = new Array("phone2", "Business Phone number must be of the form (XXX) XXX XXXX", new Function ("varName", "this.mask=/^\\d{3}$/;  return this[varName];"));
+        this.ae = new Array("phone3", "Business Phone number must be of the form (XXX) XXX XXXX", new Function ("varName", "this.mask=/^\\d{4}$/;  return this[varName];"));
+        this.af = new Array("phoneExt", "Business Phone extension must be 7 numbers or less", new Function ("varName", "this.mask=/^\\d{0,7}$/;  return this[varName];"));
+        this.ag = new Array("fax", "Fax number must be of the form (XXX) XXX XXXX", new Function ("varName", "this.mask=/^\\d{3}$/;  return this[varName];"));
+        this.ah = new Array("fax2", "Fax number must be of the form (XXX) XXX XXXX", new Function ("varName", "this.mask=/^\\d{3}$/;  return this[varName];"));
+        this.ai = new Array("fax3", "Fax number must be of the form (XXX) XXX XXXX", new Function ("varName", "this.mask=/^\\d{4}$/;  return this[varName];"));
+        this.aj = new Array("mailtoZip", "Zipcode must be digits only, of the form XXXXX or XXXXX-XXXX", new Function ("varName", "this.mask=/^\\d{5}$/;  return this[varName];"));
+        this.ak = new Array("mailtoZip2", "Zipcode must be digits only, of the form XXXXX or XXXXX-XXXX", new Function ("varName", "this.mask=/^\\d{4}$/;  return this[varName];"));
+    }
+
+    function email () {
+        this.aa = new Array("email", "The email address entered is an invalid e-mail address.", new Function ("varName", "this.maxlength='60';  return this[varName];"));
+    }
+
+
+    //End -->
+</script>
+
+
+<!--<script language="Javascript1.1" src="jsp/staticJavascript.jsp"></script>-->
+
+</body>
+</html>
